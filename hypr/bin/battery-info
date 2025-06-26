@@ -1,0 +1,48 @@
+#!/usr/bin/bash
+
+function battery_data_get {
+  local key="${1}"
+  case "${key}" in
+  'icon_name')
+    [ "${POWER_SUPPLY_STATUS}" == "Charging" ] && local icon="-charging"
+    printf 'battery-%03d%s' "$(((POWER_SUPPLY_CAPACITY / 10) * 10))" "${icon}"
+    ;;
+  'icon')
+    [ "${POWER_SUPPLY_STATUS}" == "Charging" ] && printf '' && return
+    ((POWER_SUPPLY_CAPACITY > 90)) && printf '󰁹' && return
+    ((POWER_SUPPLY_CAPACITY > 80)) && printf '󰂂' && return
+    ((POWER_SUPPLY_CAPACITY > 70)) && printf '󰂁' && return
+    ((POWER_SUPPLY_CAPACITY > 60)) && printf '󰂀' && return
+    ((POWER_SUPPLY_CAPACITY > 50)) && printf '󰁿' && return
+    ((POWER_SUPPLY_CAPACITY > 40)) && printf '󰁾' && return
+    ((POWER_SUPPLY_CAPACITY > 30)) && printf '󰁽' && return
+    ((POWER_SUPPLY_CAPACITY > 20)) && printf '󰁼' && return
+    ((POWER_SUPPLY_CAPACITY > 10)) && printf '󰁻' && return
+    ((POWER_SUPPLY_CAPACITY > 00)) && printf '󰁺' && return
+    ;;
+  *)
+    local power_supply_key="POWER_SUPPLY_${key^^}"
+    if [ -z "${!power_supply_key@A}" ]; then
+      printf 'Unknown key: %s\n' "${key^^}" >&2
+      return
+    fi
+    printf '%s' "${!power_supply_key}"
+    ;;
+  esac
+}
+
+function main {
+  local format_it='\{([a-z_]+)\}'
+  local what="${1:-"{icon} {capacity}% {status}"}"
+  # shellcheck disable=1090
+  source /sys/class/power_supply/BAT*/uevent
+
+  while [[ "${what}" =~ ${format_it} ]]; do
+    IFS=$'\n' read -r res < <(battery_data_get "${BASH_REMATCH[1]}")
+    what="${what//"${BASH_REMATCH[0]}"/"${res}"}"
+  done
+
+  printf '%s\n' "${what}"
+}
+
+main "${@}"
